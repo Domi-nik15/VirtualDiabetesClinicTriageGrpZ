@@ -44,7 +44,7 @@ jobs:
       #   run: pytest -v --maxfail=1 --disable-warnings || echo "No tests found, skipping."
 
       - name: Build Docker image (training + serving)
-        run: docker build -t ${{ env.IMAGE_NAME }}:ci-test -f .\docker\Dockerfile.cicd .
+        run: docker build -t ${{ env.IMAGE_NAME }}:ci-test -f ./docker/Dockerfile.cicd .
 
       - name: Run container smoke test
         run: |
