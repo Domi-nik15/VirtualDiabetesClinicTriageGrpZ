@@ -2,11 +2,11 @@ name: ML Model CI/CD
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main","cicd"]
     tags:
       - "v*.*.*"     # e.g. v1.0.0
   pull_request:
-    branches: ["main"]
+    branches: ["main","cicd"]
   workflow_dispatch:
 
 env:
