@@ -92,7 +92,11 @@ jobs:
 
       - name: Extract version from tag
         id: vars
-        run: echo "TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          OWNER_LC=$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')
+          echo "TAG=${TAG}" >> $GITHUB_ENV
+          echo "OWNER_LC=${OWNER_LC}" >> $GITHUB_ENV
 
       - name: Build and push image to GHCR
         uses: docker/build-push-action@v6
@@ -100,12 +104,12 @@ jobs:
           context: .
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ env.TAG }}
-            ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:latest
+            ghcr.io/${{ env.OWNER_LC }}/${{ env.IMAGE_NAME }}:${{ env.TAG }}
+            ghcr.io/${{ env.OWNER_LC }}/${{ env.IMAGE_NAME }}:latest
 
       - name: Run smoke test for pushed image
         run: |
-          docker run -d -p 9696:9696 ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ env.TAG }}
+          docker run -d -p 9696:9696 ghcr.io/${{ env.OWNER_LC }}/${{ env.IMAGE_NAME }}:${{ env.TAG }}
           sleep 10
           curl -f http://localhost:9696/health || (echo "Smoke test failed" && exit 1)
           docker stop $(docker ps -q)
