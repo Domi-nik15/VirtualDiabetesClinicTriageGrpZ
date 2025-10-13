@@ -1,0 +1,39 @@
+# Dockerfile
+# Stage 1: build + train
+FROM python:3.11-slim AS builder
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    POETRY_VIRTUALENVS_CREATE=false
+
+WORKDIR /src
+
+RUN python -m pip install --upgrade pip
+COPY train/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY train/train.py train.py
+
+RUN python train.py
+
+# Stage 2: runtime
+FROM python:3.11-slim
+
+ENV PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+RUN python -m pip install --upgrade pip
+COPY serve/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY serve/serve.py /app/app.py
+
+COPY --from=builder /src/artifacts /app/artifacts
+
+# expose port
+EXPOSE 9696
+
+# run app (example: uvicorn FastAPI)
+CMD ["gunicorn", "-b", "0.0.0.0:9696", "app:app"]

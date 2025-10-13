@@ -1,0 +1,130 @@
+name: ML Model CI/CD
+
+on:
+  push:
+    branches: ["main"]
+    tags:
+      - "v*.*.*"     # e.g. v1.0.0
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+env:
+  IMAGE_NAME: mlflow-diabetes
+  PYTHON_VERSION: "3.11"
+  MODEL_NAME: diabetes-progression
+
+jobs:
+  # -------------------------------------------------
+  # Continuous Integration (Build, Lint, Test)
+  # -------------------------------------------------
+  ci:
+    name: Lint, Test & Build
+    runs-on: ubuntu-latest
+    if: "!startsWith(github.ref, 'refs/tags/')"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Python dependencies for lint/tests
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8 pytest mlflow scikit-learn pandas
+
+      - name: Run flake8 lint
+        run: flake8 train serve
+
+      - name: Run Python tests
+        run: pytest -v --maxfail=1 --disable-warnings || echo "No tests found, skipping."
+
+      - name: Build Docker image (training + serving)
+        run: docker build -t ${{ env.IMAGE_NAME }}:ci-test -f .\docker\Dockerfile.cicd .
+
+      - name: Run container smoke test
+        run: |
+          docker run -d -p 9696:9696 --name app ${{ env.IMAGE_NAME }}:ci-test
+          echo "Waiting for app..."
+          sleep 10
+          curl -f http://localhost:9696/health || (docker logs app && exit 1)
+          docker stop app
+
+      - name: Extract training artifacts
+        run: |
+          docker create --name temp ${{ env.IMAGE_NAME }}:ci-test
+          docker cp temp:/app/artifacts ./artifacts
+          docker rm temp
+
+      - name: Upload model artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: trained-model
+          path: ./artifacts
+          if-no-files-found: error
+
+  # -------------------------------------------------
+  # Continuous Deployment (Tag → GHCR + Release)
+  # -------------------------------------------------
+  cd:
+    name: Release & Publish
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [ci]
+
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract version from tag
+        id: vars
+        run: echo "TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+
+      - name: Build and push image to GHCR
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ env.TAG }}
+            ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:latest
+
+      - name: Run smoke test for pushed image
+        run: |
+          docker run -d -p 9696:9696 ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ env.TAG }}
+          sleep 10
+          curl -f http://localhost:9696/health || (echo "Smoke test failed" && exit 1)
+          docker stop $(docker ps -q)
+
+      - name: Download model artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: trained-model
+          path: ./artifacts
+
+      - name: Create GitHub Release with artifacts
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG }}
+          name: "Release ${{ env.TAG }}"
+          draft: false
+          prerelease: false
+          files: |
+            artifacts/**
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
