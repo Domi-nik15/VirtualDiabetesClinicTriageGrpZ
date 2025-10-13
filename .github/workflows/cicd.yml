@@ -103,9 +103,11 @@ jobs:
         with:
           context: .
           push: true
+          file: docker/Dockerfile.cicd
           tags: |
             ghcr.io/${{ env.OWNER_LC }}/${{ env.IMAGE_NAME }}:${{ env.TAG }}
             ghcr.io/${{ env.OWNER_LC }}/${{ env.IMAGE_NAME }}:latest
+          
 
       - name: Run smoke test for pushed image
         run: |
