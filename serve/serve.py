@@ -6,9 +6,15 @@ from flask import Flask, request, jsonify
 MODEL_NAME = os.getenv("MODEL_NAME", "diabetes-progression")
 MODEL_VERSION = os.getenv("MODEL_VERSION", "0.0")
 
-model = joblib.load(f"artifacts/{MODEL_NAME}/model.pkl")
-
+model = None
 app = Flask(__name__)
+
+
+def load_model():
+    global model
+    if model is None:
+        model = joblib.load(f"artifacts/{MODEL_NAME}/model.pkl")
+    return model
 
 
 @app.get("/health")
@@ -36,7 +42,7 @@ def predict():
     ]
 
     try:
-        y = model.predict([rec])
+        y = load_model().predict([rec])
         return jsonify({"prediction": float(y[0])})
     except Exception as e:
         return jsonify(error=type(e).__name__, detail=str(e), rec=rec), 500
