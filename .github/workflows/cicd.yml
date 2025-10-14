@@ -121,7 +121,7 @@ jobs:
 
       - name: Run smoke test for pushed image
         run: |
-          docker run -d -p 9696:9696 ghcr.io/${{ env.OWNER_LC }}/${{ env.IMAGE_NAME }}:${{ env.TAG }}
+          docker run -d -p 9696:9696 ghcr.io/${{ env.OWNER_LC }}/${{ env.IMAGE_NAME }}:${{ env.MODEL_VERSION }}
           sleep 10
           curl -f http://localhost:9696/health || (echo "Smoke test failed" && exit 1)
           docker stop $(docker ps -q)
