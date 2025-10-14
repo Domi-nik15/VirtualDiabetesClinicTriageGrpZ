@@ -60,7 +60,9 @@ def run():
     metrics= {"RMSE":rmse}
 
     save_metrics(metrics=metrics)
-    mlflow.log_metric(metrics)
+    for key, value in metrics.items():
+      mlflow.log_metric(key,value)
+    
 
     mlflow.sklearn.save_model(sk_model=pipeline, 
                             path="artifacts/"+MODEL_NAME, 
