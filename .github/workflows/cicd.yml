@@ -30,6 +30,7 @@ jobs:
         uses: falti/dotenv-action@v1
         with:
           path: .env
+          export: true
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -52,7 +53,6 @@ jobs:
           -t ${{ env.IMAGE_NAME }}:ci-test \
           -f ./docker/Dockerfile.cicd \
           --build-arg MODEL_NAME=${{ env.MODEL_NAME }} \
-          --build-arg MODEL_VERSION=${{ env.MODEL_VERSION }} \
           --build-arg RANDOM_SEED=${{ env.RANDOM_SEED }} \
           --build-arg TEST_SIZE=${{ env.TEST_SIZE }} \.
 
