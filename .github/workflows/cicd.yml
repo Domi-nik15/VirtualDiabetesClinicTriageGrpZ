@@ -49,12 +49,12 @@ jobs:
       #   run: pytest -v --maxfail=1 --disable-warnings || echo "No tests found, skipping."
 
       - name: Build Docker image (training + serving)
-        run: docker build \
-          -t ${{ env.IMAGE_NAME }}:ci-test \
-          -f ./docker/Dockerfile.cicd \
-          --build-arg MODEL_NAME=${{ env.MODEL_NAME }} \
-          --build-arg RANDOM_SEED=${{ env.RANDOM_SEED }} \
-          --build-arg TEST_SIZE=${{ env.TEST_SIZE }} \.
+        run: docker build 
+          -t ${{ env.IMAGE_NAME }}:ci-test 
+          -f ./docker/Dockerfile.cicd 
+          --build-arg MODEL_NAME=${{ env.MODEL_NAME }} 
+          --build-arg RANDOM_SEED=${{ env.RANDOM_SEED }} 
+          --build-arg TEST_SIZE=${{ env.TEST_SIZE }} .
 
       - name: Run container smoke test
         run: |
