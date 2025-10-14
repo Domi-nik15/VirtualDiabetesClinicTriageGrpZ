@@ -42,11 +42,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install flake8 pytest mlflow scikit-learn pandas
 
-      # - name: Run flake8 lint
-      #   run: flake8 train serve
+      - name: Run flake8 lint
+        run: flake8 train serve
 
-      # - name: Run Python tests
-      #   run: pytest -v --maxfail=1 --disable-warnings || echo "No tests found, skipping."
+      - name: Run Python tests
+        run: pytest -v --maxfail=1 --disable-warnings || echo "No tests found, skipping."
 
       - name: Build Docker image (training + serving)
         run: docker build 
