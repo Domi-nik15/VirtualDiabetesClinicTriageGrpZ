@@ -4,7 +4,6 @@ import joblib
 from flask import Flask, request, jsonify
 
 MODEL_NAME  = os.getenv("MODEL_NAME", "diabetes-progression")
-MODEL_STAGE = os.getenv("MODEL_STAGE", "staging")
 MODEL_VERSION = os.getenv("MODEL_VERSION", "0.0")
 
 model = joblib.load(f"artifacts/{MODEL_NAME}/model.pkl")

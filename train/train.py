@@ -1,8 +1,6 @@
 import mlflow
 import mlflow.sklearn
 
-
-
 import os
 
 import pandas as pd
@@ -23,7 +21,6 @@ def read_dataframe():
 
 def run():
   MODEL_NAME  = os.getenv("MODEL_NAME", "diabetes-progression")
-  VERSION = os.getenv("MODEL_VERSION", "0.0")
 
   RANDOM_SEED = (int) (os.getenv("RANDOM_SEED", 0))
   TEST_SIZE = (float) (os.getenv("TEST_SIZE", 0.3))
@@ -39,14 +36,15 @@ def run():
   X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=TEST_SIZE, random_state=RANDOM_SEED) 
 
   with mlflow.start_run():
-    mlflow.log_params({
-    'Version': VERSION,
-    'Scalor': SCALOR,
-    'Model': MODEL,
-    'TestPartionSize': TEST_SIZE,
-    'TargetVariable' : TARGET_VARIABLE,
-    'RandomSeed': RANDOM_SEED
-    })
+    parameters= {
+      'Scalor': SCALOR,
+      'Model': MODEL,
+      'TestPartionSize': TEST_SIZE,
+      'TargetVariable' : TARGET_VARIABLE,
+      'RandomSeed': RANDOM_SEED
+    }
+    save_parameters(parameters)
+    mlflow.log_params(parameters)
 
     pipeline = make_pipeline(
       StandardScaler(),
@@ -58,12 +56,34 @@ def run():
     signature = infer_signature(X_val, y_pred)
 
     rmse = mean_squared_error(y_val, y_pred)
-    print(f'RMSE on validation is {rmse}')
+
+    metrics= {"RMSE":rmse}
+
+    save_metrics(metrics=metrics)
+    mlflow.log_metric(metrics)
+
     mlflow.sklearn.save_model(sk_model=pipeline, 
                             path="artifacts/"+MODEL_NAME, 
                             signature=signature,
-                            serialization_format="pickle"
-                            )
+                            serialization_format="pickle")
+
+def save_metrics(metrics: dict) -> None:
+  header = "Metrics:"
+  path = "artifacts/metrics.txt"
+  save_file(header, path, metrics)
+
+def save_parameters(parameters: dict) -> None:
+  header = "Parameters:"
+  path = "artifacts/parameters.txt"
+  save_file(header, path, parameters)
+   
+def save_file(header:str, filepath:str, entries: dict) -> None:
+  os.makedirs(os.path.dirname(filepath), exist_ok=True)
+
+  with open(filepath, "w", encoding="utf-8") as file:
+    file.write(header + "\n\n")
+    for key, value in entries.items():
+      file.write(f"{key}: {value}\n")
 
 if __name__ == '__main__':
     run()
