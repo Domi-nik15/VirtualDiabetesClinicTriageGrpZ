@@ -3,6 +3,7 @@ import mlflow.sklearn
 
 import os
 
+import numpy as np
 import pandas as pd
 
 import mlflow
@@ -14,7 +15,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LinearRegression, Ridge
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.datasets import load_diabetes
-from sklearn.metrics import mean_squared_error
+from sklearn.metrics import mean_squared_error, precision_score, recall_score
 
 
 def read_dataframe():
@@ -51,6 +52,7 @@ def run():
     TARGET_VARIABLE = os.getenv("TARGET_VARIABLE", "target")
     SCALOR = "StandardScaler"
     MODEL_TYPE = os.getenv("MODEL_TYPE", "linearReg")  # linearReg, ridge, randomForestReg
+    CALIBRATION_THRESHOLD = float(os.getenv("RISK_THRESHOLD", 0.6))
 
     df = read_dataframe()
 
@@ -89,9 +91,17 @@ def run():
         y_pred = pipeline.predict(X_val)
         signature = infer_signature(X_val, y_pred)
 
-        rmse = mean_squared_error(y_val, y_pred)
+        rmse = mean_squared_error(y_true=y_val, y_pred=y_pred)
+        precision = precision_score(y_true=y_val, y_pred=y_pred)
+        recall = recall_score(y_true=y_val, y_pred=y_pred)
+        highrisk = np.quantile(y_pred, CALIBRATION_THRESHOLD)
 
-        metrics = {"RMSE": rmse}
+        metrics = {
+            "RMSE": rmse,
+            "Precision": precision,
+            "Recall": recall,
+            "High Risk Threshold": highrisk
+        }
 
         save_metrics(metrics=metrics)
         for key, value in metrics.items():
