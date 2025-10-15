@@ -1,0 +1,53 @@
+# Dockerfile
+# Stage 1: build + train
+FROM python:3.11-slim AS builder
+
+ARG MODEL_NAME=diabetes-progression \
+    MODEL_VERSION=0.0 \
+    RANDOM_SEED=0 \
+    TEST_SIZE=0.3
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    POETRY_VIRTUALENVS_CREATE=false \
+    MODEL_NAME=${MODEL_NAME} \
+    MODEL_VERSION=${MODEL_VERSION} \
+    RANDOM_SEED=${RANDOM_SEED} \
+    TEST_SIZE=${TEST_SIZE}
+
+WORKDIR /src
+
+RUN python -m pip install --upgrade pip
+COPY train/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY train/train.py train.py
+
+RUN python train.py
+
+# Stage 2: runtime
+FROM python:3.11-slim
+
+ARG MODEL_NAME=diabetes-progression \
+    MODEL_VERSION=0.0 
+
+ENV PYTHONUNBUFFERED=1 \
+    MODEL_NAME=${MODEL_NAME} \
+    MODEL_VERSION=${MODEL_VERSION}
+
+WORKDIR /app
+
+RUN python -m pip install --upgrade pip
+COPY serve/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY serve/serve.py /app/app.py
+
+COPY --from=builder /src/artifacts /app/artifacts
+
+# expose port
+EXPOSE 9696
+
+# run app (example: uvicorn FastAPI)
+CMD ["gunicorn", "-b", "0.0.0.0:9696", "app:app"]

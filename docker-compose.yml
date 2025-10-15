@@ -1,30 +1,15 @@
 services:
-  mlflow:
-    image: python:3.11-slim
-    working_dir: /app
-    command: >
-      sh -c "pip install --no-cache-dir mlflow==2.7.1 && mlflow server --backend-store-uri sqlite:////mlflow/mlflow.db --default-artifact-root file:///mlflow/artifacts --host 0.0.0.0 --port 5000"
-    ports: ["5000:5000"]
-    volumes:
-      - mlflow_data:/mlflow
-    restart: unless-stopped
-
-  notebook:
+  train_and_run:
     build:
       context: .
-      dockerfile: docker/Dockerfile.train
-    container_name: mlops-notebook
-    environment:
-      MLFLOW_TRACKING_URI: "http://mlflow:5000"
+      dockerfile: docker/Dockerfile.cicd
+      args:
+        MODEL_NAME: ${MODEL_NAME}
+        MODEL_VERSION: ${MODEL_VERSION}
+        RANDOM_SEED: ${RANDOM_SEED}
+        TEST_SIZE: ${TEST_SIZE}
+    container_name: mlops-python-auto-train
+    env_file:
+      - .env
     ports:
-      - "8888:8888"
-    volumes:
-      - ./:/work
-      - mlflow_data:/mlflow
-    depends_on:
-      - mlflow
-    restart: unless-stopped
-
-
-volumes:
-  mlflow_data:
+      - "9696:9696"

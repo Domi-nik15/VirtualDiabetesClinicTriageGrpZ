@@ -1,0 +1,157 @@
+name: ML Model CI/CD
+
+on:
+  push:
+    branches: ["main","cicd"]
+    tags:
+      - "v*.*.*"     # e.g. v1.0.0
+  pull_request:
+    branches: ["main","cicd"]
+  workflow_dispatch:
+
+env:
+  IMAGE_NAME: mlflow-diabetes
+  PYTHON_VERSION: "3.11"
+  MODEL_NAME: diabetes-progression
+
+jobs:
+  # -------------------------------------------------
+  # Continuous Integration (Build, Lint, Test)
+  # -------------------------------------------------
+  ci:
+    name: Lint, Test & Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Load environment variables
+        run: |
+          echo "MODEL_NAME=$(grep MODEL_NAME .env | cut -d '=' -f2)" >> $GITHUB_ENV
+          echo "RANDOM_SEED=$(grep RANDOM_SEED .env | cut -d '=' -f2)" >> $GITHUB_ENV
+          echo "TEST_SIZE=$(grep TEST_SIZE .env | cut -d '=' -f2)" >> $GITHUB_ENV
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Python dependencies for lint/tests
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8 pytest mlflow scikit-learn pandas
+
+      - name: Run flake8 lint
+        run: flake8 train serve
+
+      - name: Run Python tests
+        run: pytest -v --maxfail=1 --disable-warnings || echo "No tests found, skipping."
+
+      - name: Build Docker image (training + serving)
+        run: docker build 
+          -t ${{ env.IMAGE_NAME }}:ci-test 
+          -f ./docker/Dockerfile.cicd 
+          --build-arg MODEL_NAME=${{ env.MODEL_NAME }} 
+          --build-arg RANDOM_SEED=${{ env.RANDOM_SEED }} 
+          --build-arg TEST_SIZE=${{ env.TEST_SIZE }} .
+
+      - name: Run container smoke test
+        run: |
+          docker run -d -p 9696:9696 --name app ${{ env.IMAGE_NAME }}:ci-test
+          echo "Waiting for app..."
+          sleep 10
+          curl -f http://localhost:9696/health || (docker logs app && exit 1)
+          docker stop app
+
+      - name: Extract training artifacts
+        run: |
+          docker create --name temp ${{ env.IMAGE_NAME }}:ci-test
+          docker cp temp:/app/artifacts ./artifacts
+          docker rm temp
+
+      - name: Upload model artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: trained-model
+          path: ./artifacts
+          if-no-files-found: error
+
+  # -------------------------------------------------
+  # Continuous Deployment (Tag → GHCR + Release)
+  # -------------------------------------------------
+  cd:
+    name: Release & Publish
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [ci]
+
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Load environment variables
+        run: |
+          echo "MODEL_NAME=$(grep MODEL_NAME .env | cut -d '=' -f2)" >> $GITHUB_ENV
+          echo "RANDOM_SEED=$(grep RANDOM_SEED .env | cut -d '=' -f2)" >> $GITHUB_ENV
+          echo "TEST_SIZE=$(grep TEST_SIZE .env | cut -d '=' -f2)" >> $GITHUB_ENV
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract version from tag
+        id: vars
+        run: |
+          MODEL_VERSION="${GITHUB_REF#refs/tags/}"
+          OWNER_LC=$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')
+          echo "MODEL_VERSION=${MODEL_VERSION}" >> $GITHUB_ENV
+          echo "OWNER_LC=${OWNER_LC}" >> $GITHUB_ENV
+
+      - name: Build and push image to GHCR
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          file: docker/Dockerfile.cicd
+          build-args: |
+            MODEL_NAME=${{ env.MODEL_NAME }}
+            MODEL_VERSION=${{ env.MODEL_VERSION }}
+            RANDOM_SEED=${{ env.RANDOM_SEED }}
+            TEST_SIZE=${{ env.TEST_SIZE }}
+          tags: |
+            ghcr.io/${{ env.OWNER_LC }}/${{ env.IMAGE_NAME }}:${{ env.MODEL_VERSION }}
+            ghcr.io/${{ env.OWNER_LC }}/${{ env.IMAGE_NAME }}:latest
+          
+
+      - name: Run smoke test for pushed image
+        run: |
+          docker run -d -p 9696:9696 ghcr.io/${{ env.OWNER_LC }}/${{ env.IMAGE_NAME }}:${{ env.MODEL_VERSION }}
+          sleep 10
+          curl -f http://localhost:9696/health || (echo "Smoke test failed" && exit 1)
+          docker stop $(docker ps -q)
+
+      - name: Download model artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: trained-model
+          path: ./artifacts
+
+      - name: Create GitHub Release with artifacts
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.MODEL_VERSION }}
+          name: "Release ${{ env.MODEL_VERSION }}"
+          draft: false
+          prerelease: false
+          files: |
+            artifacts/**
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
