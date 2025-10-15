@@ -3,6 +3,7 @@ import mlflow.sklearn
 
 import os
 
+import numpy as np
 import pandas as pd
 
 import mlflow
@@ -11,9 +12,10 @@ from mlflow.models import infer_signature
 from sklearn.pipeline import make_pipeline
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
-from sklearn.linear_model import LinearRegression
+from sklearn.linear_model import LinearRegression, Ridge
+from sklearn.ensemble import RandomForestRegressor
 from sklearn.datasets import load_diabetes
-from sklearn.metrics import mean_squared_error
+from sklearn.metrics import mean_squared_error, precision_score, recall_score
 
 
 def read_dataframe():
@@ -49,7 +51,8 @@ def run():
     TEST_SIZE = (float)(os.getenv("TEST_SIZE", 0.3))
     TARGET_VARIABLE = os.getenv("TARGET_VARIABLE", "target")
     SCALOR = "StandardScaler"
-    MODEL = "LinearRegression"
+    MODEL_TYPE = os.getenv("MODEL_TYPE", "linearReg")  # linearReg, ridge, randomForestReg
+    CALIBRATION_THRESHOLD = float(os.getenv("RISK_THRESHOLD", 0.6))
 
     df = read_dataframe()
 
@@ -61,7 +64,7 @@ def run():
     with mlflow.start_run():
         parameters = {
             'Scalor': SCALOR,
-            'Model': MODEL,
+            'Model': MODEL_TYPE,
             'TestPartionSize': TEST_SIZE,
             'TargetVariable': TARGET_VARIABLE,
             'RandomSeed': RANDOM_SEED
@@ -70,18 +73,39 @@ def run():
         save_parameters(parameters)
         mlflow.log_params(parameters)
 
+        if MODEL_TYPE == "linearReg":
+            estimator = LinearRegression()
+        elif MODEL_TYPE == "ridge":
+            estimator = Ridge(random_state=RANDOM_SEED)
+        elif MODEL_TYPE == "randomForestReg":
+            estimator = RandomForestRegressor(random_state=RANDOM_SEED)
+        else:
+            raise ValueError(f"Unsupported MODEL_TYPE: {MODEL_TYPE}")
+
         pipeline = make_pipeline(
             StandardScaler(),
-            LinearRegression()
+            estimator
         )
 
         pipeline.fit(X_train, y_train)
         y_pred = pipeline.predict(X_val)
         signature = infer_signature(X_val, y_pred)
 
-        rmse = mean_squared_error(y_val, y_pred)
+        rmse = mean_squared_error(y_true=y_val, y_pred=y_pred)
 
-        metrics = {"RMSE": rmse}
+        highrisk = np.quantile(y_val, CALIBRATION_THRESHOLD)
+        y_val_highrisk = (y_val > highrisk).astype(int)
+        y_pred_highrisk = (y_pred > highrisk).astype(int)
+
+        precision = precision_score(y_true=y_val_highrisk, y_pred=y_pred_highrisk)
+        recall = recall_score(y_true=y_val_highrisk, y_pred=y_pred_highrisk)
+
+        metrics = {
+            "RMSE": rmse,
+            "High Risk Threshold": highrisk,
+            "Precision": precision,
+            "Recall": recall,
+        }
 
         save_metrics(metrics=metrics)
         for key, value in metrics.items():

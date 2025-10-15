@@ -2,11 +2,11 @@ name: ML Model CI/CD
 
 on:
   push:
-    branches: ["main","cicd"]
+    branches: ["main","dev_*"]
     tags:
       - "v*.*.*"     # e.g. v1.0.0
   pull_request:
-    branches: ["main","cicd"]
+    branches: ["main"]
   workflow_dispatch:
 
 env:
@@ -29,8 +29,10 @@ jobs:
       - name: Load environment variables
         run: |
           echo "MODEL_NAME=$(grep MODEL_NAME .env | cut -d '=' -f2)" >> $GITHUB_ENV
+          echo "MODEL_TYPE=$(grep MODEL_TYPE .env | cut -d '=' -f2)" >> $GITHUB_ENV
           echo "RANDOM_SEED=$(grep RANDOM_SEED .env | cut -d '=' -f2)" >> $GITHUB_ENV
           echo "TEST_SIZE=$(grep TEST_SIZE .env | cut -d '=' -f2)" >> $GITHUB_ENV
+          echo "CALIBRATION_THRESHOLD=$(grep CALIBRATION_THRESHOLD .env | cut -d '=' -f2)" >> $GITHUB_ENV
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -52,8 +54,10 @@ jobs:
         run: docker build 
           -t ${{ env.IMAGE_NAME }}:ci-test 
           -f ./docker/Dockerfile.cicd 
-          --build-arg MODEL_NAME=${{ env.MODEL_NAME }} 
+          --build-arg MODEL_NAME=${{ env.MODEL_NAME }}
+          --build-arg MODEL_TYPE=${{ env.MODEL_TYPE }}
           --build-arg RANDOM_SEED=${{ env.RANDOM_SEED }} 
+          --build-arg CALIBRATION_THRESHOLD=${{ env.CALIBRATION_THRESHOLD }}
           --build-arg TEST_SIZE=${{ env.TEST_SIZE }} .
 
       - name: Run container smoke test
@@ -97,8 +101,10 @@ jobs:
       - name: Load environment variables
         run: |
           echo "MODEL_NAME=$(grep MODEL_NAME .env | cut -d '=' -f2)" >> $GITHUB_ENV
+          echo "MODEL_TYPE=$(grep MODEL_TYPE .env | cut -d '=' -f2)" >> $GITHUB_ENV
           echo "RANDOM_SEED=$(grep RANDOM_SEED .env | cut -d '=' -f2)" >> $GITHUB_ENV
           echo "TEST_SIZE=$(grep TEST_SIZE .env | cut -d '=' -f2)" >> $GITHUB_ENV
+          echo "CALIBRATION_THRESHOLD=$(grep CALIBRATION_THRESHOLD .env | cut -d '=' -f2)" >> $GITHUB_ENV
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
@@ -123,9 +129,11 @@ jobs:
           file: docker/Dockerfile.cicd
           build-args: |
             MODEL_NAME=${{ env.MODEL_NAME }}
+            MODEL_TYPE=${{ env.MODEL_TYPE }}
             MODEL_VERSION=${{ env.MODEL_VERSION }}
             RANDOM_SEED=${{ env.RANDOM_SEED }}
             TEST_SIZE=${{ env.TEST_SIZE }}
+            CALIBRATION_THRESHOLD={{ env.CALIBRATION_THRESHOLD}}
           tags: |
             ghcr.io/${{ env.OWNER_LC }}/${{ env.IMAGE_NAME }}:${{ env.MODEL_VERSION }}
             ghcr.io/${{ env.OWNER_LC }}/${{ env.IMAGE_NAME }}:latest
