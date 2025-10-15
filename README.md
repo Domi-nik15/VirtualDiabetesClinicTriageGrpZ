@@ -54,7 +54,7 @@ VirtualDiabetesClinicTriageGrpZ/
 
 ```bash
 # Train, build and run application
-docker compose up -d train_and_rund --build
+docker compose up -d train_and_run --build
 
 ```
 
@@ -62,7 +62,7 @@ docker compose up -d train_and_rund --build
 
 Test local container:
 ```bash
-curl -X POST http://localhost:9696/health
+curl -X GET http://localhost:9696/health
 ```
 
 Expected request:
