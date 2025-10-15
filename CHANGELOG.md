@@ -1,5 +1,33 @@
 # Changelog
 
+## [v0.2.0] - 2025-10-15
+
+### 🚀 New Features
+- 🔍 Added model type selection linearReg, ridge, randomForestReg
+- 🔍 Introduced precision and recall metrics for model evaluation.
+- ⚠️ Added high-risk threshold logic to improve triage accuracy.
+
+### 📊 Model Details
+
+| Attribute          | Value                                  |
+|--------------------|----------------------------------------|
+| Model Type         | Ridge Regression                       |
+| Preprocessing      | StandardScaler                         |
+| Input Features     | 10 (age, sex, bmi, bp, s1–s6)          |
+| Output             | Continuous progression risk score      |
+| Test Partion Size  | 25 %                                   |
+| RandomSeed         | 8                                      |
+| RMSE               | 3091.26                                |
+| High Risk Threshold| 160.0                                  |
+| Precision          | 0.62                                   |
+| Recall             | 0.76                                   |
+| Model Size         | ~2 KB (serialized `.pkl` file)         |
+| Training Dataset   | Scikit-learn Diabetes Dataset          |
+| Version            | v0.2.0                                 |
+| Docker Image Size  | ~750 MB                                |
+
+---
+
 ## [v0.1.0] - 2025-10-15
 
 ### 🚀 Features
@@ -42,7 +70,7 @@
 | Output           | Continuous progression risk score      |
 | Test Partion Size| 25 %                                   |
 | RandomSeed       | 8                                      |
-| Evaluation Metric| RMSE = 3108.05 (on held-out test split)|
+| RMSE             | 3108.05 (on held-out test split)       |
 | Model Size       | ~2 KB (serialized `.pkl` file)         |
 | Training Dataset | Scikit-learn Diabetes Dataset          |
 | Version          | v0.1.0                                 |
