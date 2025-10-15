@@ -29,6 +29,7 @@ jobs:
       - name: Load environment variables
         run: |
           echo "MODEL_NAME=$(grep MODEL_NAME .env | cut -d '=' -f2)" >> $GITHUB_ENV
+          echo "MODEL_TYPE=$(grep MODEL_TYPE .env | cut -d '=' -f2)" >> $GITHUB_ENV
           echo "RANDOM_SEED=$(grep RANDOM_SEED .env | cut -d '=' -f2)" >> $GITHUB_ENV
           echo "TEST_SIZE=$(grep TEST_SIZE .env | cut -d '=' -f2)" >> $GITHUB_ENV
 
@@ -52,7 +53,8 @@ jobs:
         run: docker build 
           -t ${{ env.IMAGE_NAME }}:ci-test 
           -f ./docker/Dockerfile.cicd 
-          --build-arg MODEL_NAME=${{ env.MODEL_NAME }} 
+          --build-arg MODEL_NAME=${{ env.MODEL_NAME }}
+          --build-arg MODEL_TYPE=${{ env.MODEL_TYPE }}
           --build-arg RANDOM_SEED=${{ env.RANDOM_SEED }} 
           --build-arg TEST_SIZE=${{ env.TEST_SIZE }} .
 
@@ -97,6 +99,7 @@ jobs:
       - name: Load environment variables
         run: |
           echo "MODEL_NAME=$(grep MODEL_NAME .env | cut -d '=' -f2)" >> $GITHUB_ENV
+          echo "MODEL_TYPE=$(grep MODEL_TYPE .env | cut -d '=' -f2)" >> $GITHUB_ENV
           echo "RANDOM_SEED=$(grep RANDOM_SEED .env | cut -d '=' -f2)" >> $GITHUB_ENV
           echo "TEST_SIZE=$(grep TEST_SIZE .env | cut -d '=' -f2)" >> $GITHUB_ENV
 
@@ -123,6 +126,7 @@ jobs:
           file: docker/Dockerfile.cicd
           build-args: |
             MODEL_NAME=${{ env.MODEL_NAME }}
+            MODEL_TYPE=${{ env.MODEL_TYPE }}
             MODEL_VERSION=${{ env.MODEL_VERSION }}
             RANDOM_SEED=${{ env.RANDOM_SEED }}
             TEST_SIZE=${{ env.TEST_SIZE }}

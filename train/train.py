@@ -11,7 +11,8 @@ from mlflow.models import infer_signature
 from sklearn.pipeline import make_pipeline
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
-from sklearn.linear_model import LinearRegression
+from sklearn.linear_model import LinearRegression, Ridge
+from sklearn.ensemble import RandomForestRegressor
 from sklearn.datasets import load_diabetes
 from sklearn.metrics import mean_squared_error
 
@@ -49,7 +50,7 @@ def run():
     TEST_SIZE = (float)(os.getenv("TEST_SIZE", 0.3))
     TARGET_VARIABLE = os.getenv("TARGET_VARIABLE", "target")
     SCALOR = "StandardScaler"
-    MODEL = "LinearRegression"
+    MODEL_TYPE = os.getenv("MODEL_TYPE", "linearReg")  # linearReg, ridge, randomForestReg
 
     df = read_dataframe()
 
@@ -61,7 +62,7 @@ def run():
     with mlflow.start_run():
         parameters = {
             'Scalor': SCALOR,
-            'Model': MODEL,
+            'Model': MODEL_TYPE,
             'TestPartionSize': TEST_SIZE,
             'TargetVariable': TARGET_VARIABLE,
             'RandomSeed': RANDOM_SEED
@@ -70,9 +71,18 @@ def run():
         save_parameters(parameters)
         mlflow.log_params(parameters)
 
+        if MODEL_TYPE == "linearReg":
+            estimator = LinearRegression()
+        elif MODEL_TYPE == "ridge":
+            estimator = Ridge(random_state=RANDOM_SEED)
+        elif MODEL_TYPE == "randomForestReg":
+            estimator = RandomForestRegressor(random_state=RANDOM_SEED)
+        else:
+            raise ValueError(f"Unsupported MODEL_TYPE: {MODEL_TYPE}")
+
         pipeline = make_pipeline(
             StandardScaler(),
-            LinearRegression()
+            estimator
         )
 
         pipeline.fit(X_train, y_train)

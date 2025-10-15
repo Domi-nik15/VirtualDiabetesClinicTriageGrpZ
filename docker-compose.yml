@@ -8,6 +8,7 @@ services:
         MODEL_VERSION: ${MODEL_VERSION}
         RANDOM_SEED: ${RANDOM_SEED}
         TEST_SIZE: ${TEST_SIZE}
+        MODEL_TYPE: ${MODEL_TYPE}
     container_name: mlops-python-auto-train
     env_file:
       - .env
