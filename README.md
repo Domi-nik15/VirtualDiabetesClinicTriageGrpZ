@@ -98,6 +98,13 @@ stop containers
 docker compose down
 ```
 
+---
+
+## Run prebuild container
+
+```bash
+docker run -d -p 9696:9696  ghcr.io/domi-nik15/mlflow-diabetes:latest
+```
 
 ---
 
