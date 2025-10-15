@@ -92,15 +92,19 @@ def run():
         signature = infer_signature(X_val, y_pred)
 
         rmse = mean_squared_error(y_true=y_val, y_pred=y_pred)
-        precision = precision_score(y_true=y_val, y_pred=y_pred)
-        recall = recall_score(y_true=y_val, y_pred=y_pred)
-        highrisk = np.quantile(y_pred, CALIBRATION_THRESHOLD)
+
+        highrisk = np.quantile(y_val, CALIBRATION_THRESHOLD)
+        y_val_highrisk = (y_val > highrisk).astype(int)
+        y_pred_highrisk = (y_pred > highrisk).astype(int)
+
+        precision = precision_score(y_true=y_val_highrisk, y_pred=y_pred_highrisk)
+        recall = recall_score(y_true=y_val_highrisk, y_pred=y_pred_highrisk)
 
         metrics = {
             "RMSE": rmse,
+            "High Risk Threshold": highrisk,
             "Precision": precision,
             "Recall": recall,
-            "High Risk Threshold": highrisk
         }
 
         save_metrics(metrics=metrics)
